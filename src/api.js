@@ -1,19 +1,22 @@
 // HTTP client for the BurnLink backend.
 //
-// Wire format (ASCII-safe to avoid Netlify Edge UTF-8 substitution):
-//   POST  {apiBaseUrl}/upload   body: { payload: <base64url(iv||ct||tag)> }
+// Wire format:
+//   POST  {apiBaseUrl}/upload          body: raw ciphertext bytes (iv||ct||tag)
+//        Content-Type: application/octet-stream
 //        headers: X-License-Key, X-Original-Name, X-Expiry, X-Burn-After-Read
 //        response: { id, expiresAt }
 //   GET   {apiBaseUrl}/object/:id
 //        response: { payload: <base64url(iv||ct||tag)>, expiresAt, burnAfterRead }
-//   GET   {apiBaseUrl}/info/:id       response: { expiresAt, burnAfterRead }
+//        (JSON envelope keeps bytes ASCII-safe through Netlify Edge, which
+//         replaces non-UTF-8 sequences in raw responses with U+FFFD.)
+//   GET   {apiBaseUrl}/info/:id        response: { expiresAt, burnAfterRead }
 
 "use strict";
 
 const http = require("node:http");
 const https = require("node:https");
 const { URL } = require("node:url");
-const { b64urlEncode, b64urlDecode } = require("./crypto");
+const { b64urlDecode } = require("./crypto");
 
 const VALID_EXPIRY = new Set(["1h", "24h", "7d"]);
 
@@ -67,21 +70,20 @@ async function upload(ciphertext, opts) {
   if (!VALID_EXPIRY.has(expiry)) {
     throw new Error(`expiry must be one of: ${[...VALID_EXPIRY].join(", ")}`);
   }
-  const jsonBody = JSON.stringify({ payload: b64urlEncode(ciphertext) });
   const headers = {
-    "Content-Type": "application/json",
+    "Content-Type": "application/octet-stream",
     "X-License-Key": licenseKey || "",
     "X-Original-Name": name || "upload.bin",
     "X-Expiry": expiry,
     "X-Burn-After-Read": burnAfterRead ? "true" : "false",
-    "Content-Length": Buffer.byteLength(jsonBody),
+    "Content-Length": ciphertext.length,
   };
   if (apiToken) headers["Authorization"] = `Bearer ${apiToken}`;
   const res = await _request({
     method: "POST",
     url: `${(apiBaseUrl || "").replace(/\/+$/, "")}/upload`,
     headers,
-    body: jsonBody,
+    body: ciphertext,
   });
   if (res.statusCode === 401) throw new ApiError("missing or invalid X-License-Key", 401, res.body);
   if (res.statusCode < 200 || res.statusCode >= 300) {
