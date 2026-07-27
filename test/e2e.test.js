@@ -128,8 +128,8 @@ test("server rejects upload without a license key header", async () => {
 
 test("link.build + link.parse carries key in fragment, not path", () => {
   const fake = { id: "abc", key: Buffer.alloc(32, 1), iv: Buffer.alloc(12, 2) };
-  const url = linkMod.build({ ...fake, baseUrl: "https://burnlink.app" });
-  assert.match(url, /^https:\/\/burnlink\.app\/d\/abc#/);
+  const url = linkMod.build({ ...fake, baseUrl: "https://burnlink.page" });
+  assert.match(url, /^https:\/\/burnlink\.page\/d\/abc#/);
   const parsed = linkMod.parse(url);
   assert.equal(parsed.id, "abc");
   assert.deepEqual(parsed.key, fake.key);

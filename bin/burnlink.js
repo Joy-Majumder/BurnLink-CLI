@@ -16,8 +16,8 @@ const configMod = require("../src/config");
 const api = require("../src/api");
 
 const VERSION = require("../package.json").version;
-const DEFAULT_API = "https://burnlink.app";
-const DEFAULT_LINK = "https://burnlink.app";
+const DEFAULT_API = "https://burnlink.page";
+const DEFAULT_LINK = "https://burnlink.page";
 
 const HELP = `
 BurnLink CLI v${VERSION}
@@ -44,8 +44,8 @@ COMMANDS
 EXAMPLES
   burnlink activate BURNLINK-STD-AAAA-BBBB-CCCC
   burnlink upload ./secret.pdf
-  burnlink download https://burnlink.app/d/abc123 --out ./secret.pdf
-  burnlink info https://burnlink.app/d/abc123
+  burnlink download https://burnlink.page/d/abc123 --out ./secret.pdf
+  burnlink info https://burnlink.page/d/abc123
 
 All network payloads are AES-256-GCM encrypted client-side. The server
 only ever sees ciphertext. Burn-after-read deletes the payload after

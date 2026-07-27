@@ -7,8 +7,8 @@
 // Schema:
 //   {
 //     licenseKey:    "BURNLINK-STD-XXXX-XXXX-CCCC",     # active license
-//     apiBaseUrl:    "https://burnlink.app",           # default
-//     linkBaseUrl:   "https://burnlink.app",           # default
+//     apiBaseUrl:    "https://burnlink.page/api/cli", # default
+//     linkBaseUrl:   "https://burnlink.page",          # default
 //     defaultExpiry: "24h",                            # "1h"|"24h"|"7d"
 //     apiToken:      null,                             # optional bearer
 //     licenseServerUrl: null                           # opt-in remote check
@@ -22,8 +22,8 @@ const os = require("node:os");
 
 const DEFAULTS = Object.freeze({
   licenseKey: null,
-  apiBaseUrl: "https://burnlink.app/api/cli",
-  linkBaseUrl: "https://burnlink.app",
+  apiBaseUrl: "https://burnlink.page/api/cli",
+  linkBaseUrl: "https://burnlink.page",
   defaultExpiry: "24h",
   apiToken: null,
   licenseServerUrl: null,
