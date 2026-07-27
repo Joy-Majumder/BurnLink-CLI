@@ -21,11 +21,13 @@ test("generateKey → validateKey round-trips for DEV", () => {
 
 test("validateKey rejects a tampered checksum", () => {
   const key = license.generateKey(license.TIERS.STANDARD);
-  // flip a char in the checksum group
+  // Flip a char in the checksum group; the new last char is the start
+  // of the signature, so this also breaks the Ed25519 sig — either
+  // failure mode is acceptable.
   const tampered = key.slice(0, -1) + (key.endsWith("A") ? "B" : "A");
   const parsed = license.validateKey(tampered);
   assert.equal(parsed.ok, false);
-  assert.match(parsed.reason, /checksum/i);
+  assert.match(parsed.reason, /checksum|signature/);
 });
 
 test("validateKey rejects malformed strings", () => {
