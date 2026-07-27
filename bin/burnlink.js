@@ -8,6 +8,7 @@
 const fs = require("node:fs");
 const path = require("node:path");
 const process = require("node:process");
+const os = require("node:os");
 
 const crypto = require("../src/crypto");
 const license = require("../src/license");
@@ -38,6 +39,7 @@ COMMANDS
   config get [key]       Read a config value (apiBaseUrl, linkBaseUrl, …).
   config set <key> <v>   Write a config value. STD keys cannot override
                          apiBaseUrl or linkBaseUrl.
+  uninstall [--yes]      Remove BurnLink (handles npm + tarball installs).
   help                   Show this message.
   version                Print version.
 
@@ -303,7 +305,105 @@ function cmdConfig(args) {
     return;
   }
 
-  die("usage: burnlink config <get|set> [key] [value]");
+die("usage: burnlink config <get|set> [key] [value]");
+}
+
+function cmdUninstall(args) {
+  const yes = args.yes || args.y;
+
+  // Detect install mode. Tarball flow installs to ~/.burnlink/bin/burnlink.
+  // npm flow installs to <npm root -g>/burnlink.
+  const tarballDir = path.join(os.homedir(), ".burnlink");
+  const tarballBin = path.join(tarballDir, "bin", "burnlink");
+  const tarballMarker = path.join(tarballDir, ".burnlink-install");
+  const isTarball =
+    fs.existsSync(tarballBin) && fs.existsSync(tarballMarker);
+
+  if (!yes) {
+    console.log(BOLD("BurnLink uninstall"));
+    console.log("");
+    if (isTarball) {
+      console.log("Detected tarball install at:", tarballDir);
+      console.log("");
+      console.log("This will:");
+      console.log("  • remove", tarballDir);
+      console.log("  • strip PATH exports from ~/.zshrc / ~/.bashrc / ~/.profile");
+      console.log("  • strip PATH exports from fish config (if present)");
+      console.log("");
+      process.stdout.write("Continue? [y/N] ");
+      let line = "";
+      try {
+        // fs.readSync on fd 0 reads up to N bytes synchronously from stdin.
+        // In an interactive TTY, the user types a line and hits enter.
+        // In a non-interactive pipe (e.g. CI), this returns 0 and we abort.
+        const buf = Buffer.alloc(1024);
+        const n = fs.readSync(0, buf, 0, 1024, null);
+        line = buf.slice(0, n).toString("utf8");
+      } catch (_) {
+        line = "";
+      }
+      if (!/^y(es)?$/i.test(line.trim())) die("aborted");
+    } else {
+      console.log("Detected npm install.");
+      console.log("");
+      console.log("Run this yourself:");
+      console.log(BOLD("  npm uninstall -g burnlink"));
+      console.log("");
+      console.log("(We can't uninstall ourselves in-process — npm would yank");
+      console.log(" the running binary out from under the uninstall command.)");
+      return;
+    }
+  }
+
+  if (!isTarball) {
+    console.log(BOLD("  npm uninstall -g burnlink"));
+    return;
+  }
+
+  // --- tarball cleanup ---
+  fs.rmSync(tarballDir, { recursive: true, force: true });
+  ok("removed " + tarballDir);
+
+  const rcFiles = [
+    path.join(os.homedir(), ".zshrc"),
+    path.join(os.homedir(), ".bashrc"),
+    path.join(os.homedir(), ".profile"),
+    path.join(os.homedir(), ".config", "fish", "config.fish"),
+  ];
+
+  const marker = "# burnlink: PATH";
+  let stripped = 0;
+  for (const f of rcFiles) {
+    if (!fs.existsSync(f)) continue;
+    let txt = fs.readFileSync(f, "utf8");
+    const before = txt;
+    // Drop the marker line and any preceding `export PATH=…` line that
+    // referenced ~/.burnlink/bin.
+    const lines = txt.split(/\r?\n/);
+    const out = [];
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      if (line.includes(marker)) continue;
+      if (
+        /\.burnlink\/bin/.test(line) &&
+        i + 1 < lines.length &&
+        lines[i + 1].includes(marker)
+      ) {
+        continue;
+      }
+      out.push(line);
+    }
+    txt = out.join("\n");
+    if (txt !== before) {
+      fs.writeFileSync(f, txt);
+      stripped++;
+      ok("cleaned " + f);
+    }
+  }
+  if (stripped === 0) info("no shell-rc PATH entries to strip");
+
+  console.log("");
+  ok("BurnLink uninstalled. Open a new shell to drop it from PATH.");
 }
 
 // --- router ---------------------------------------------------------------
@@ -317,6 +417,7 @@ const ROUTES = {
   download: cmdDownload,
   info: cmdInfo,
   config: cmdConfig,
+  uninstall: cmdUninstall,
   help: () => console.log(HELP),
   version: () => console.log(VERSION),
 };
