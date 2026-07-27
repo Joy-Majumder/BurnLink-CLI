@@ -140,6 +140,7 @@ async function download(id, opts) {
     ciphertext,
     expiresAt: json.expiresAt || null,
     burnAfterRead: !!json.burnAfterRead,
+    originalName: json.originalName || null,
   };
 }
 
@@ -167,6 +168,7 @@ async function info(id, opts) {
   return {
     expiresAt: json.expiresAt,
     burnAfterRead: !!json.burnAfterRead,
+    originalName: json.originalName || null,
   };
 }
 

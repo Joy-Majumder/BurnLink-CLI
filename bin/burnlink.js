@@ -220,7 +220,7 @@ async function cmdDownload(args) {
   if (!parsed) die("could not parse burn link");
 
   info(`fetching ${parsed.id}…`);
-  const { ciphertext, expiresAt } = await api.download(parsed.id, {
+  const { ciphertext, expiresAt, originalName } = await api.download(parsed.id, {
     apiBaseUrl: cfg.apiBaseUrl,
     apiToken: cfg.apiToken,
     licenseKey: cfg.licenseKey,
@@ -240,9 +240,16 @@ async function cmdDownload(args) {
     die(`decryption failed: ${e.message}`);
   }
 
+  // Default filename: prefer the original upload name so a PNG round-trips
+  // as `cat.png` instead of `<id>.bin`. The id-only fallback is kept for
+  // old uploads that don't carry an original_name.
+  const defaultName =
+    (originalName && /[^\w.\-]/.test(originalName) === false && originalName.length > 0)
+      ? originalName
+      : `${parsed.id}.bin`;
   const out = args.out
     ? path.resolve(args.out)
-    : path.resolve(`./${parsed.id}.bin`);
+    : path.resolve(`./${defaultName}`);
   fs.writeFileSync(out, plaintext);
   ok(`wrote ${plaintext.length} bytes → ${out}`);
   info(`link expired ${expiresAt}`);
@@ -264,6 +271,7 @@ async function cmdInfo(args) {
   console.log(BOLD("id:        "), id);
   console.log("expires:   ", meta.expiresAt);
   console.log("burn:      ", meta.burnAfterRead ? "yes" : "no");
+  if (meta.originalName) console.log("filename:  ", meta.originalName);
 }
 
 function cmdConfig(args) {
