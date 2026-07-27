@@ -1,0 +1,21 @@
+{
+  "name": "burnlink",
+  "version": "0.1.0",
+  "description": "BurnLink CLI — zero-knowledge, self-destructing file sharing from your terminal. Requires a BurnLink license key.",
+  "private": true,
+  "license": "UNLICENSED",
+  "bin": {
+    "burnlink": "bin/burnlink.js"
+  },
+  "scripts": {
+    "test": "node --test test/",
+    "dev-server": "node server/index.js",
+    "start": "node bin/burnlink.js"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "type": "commonjs",
+  "dependencies": {},
+  "devDependencies": {}
+}
