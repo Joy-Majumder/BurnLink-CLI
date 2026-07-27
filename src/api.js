@@ -1,20 +1,19 @@
 // HTTP client for the BurnLink backend.
 //
-// Contract:
-//   POST  {apiBaseUrl}/upload         raw ciphertext body
+// Wire format (ASCII-safe to avoid Netlify Edge UTF-8 substitution):
+//   POST  {apiBaseUrl}/upload   body: { payload: <base64url(iv||ct||tag)> }
 //        headers: X-License-Key, X-Original-Name, X-Expiry, X-Burn-After-Read
 //        response: { id, expiresAt }
-//   GET   {apiBaseUrl}/object/:id     returns raw ciphertext bytes
+//   GET   {apiBaseUrl}/object/:id
+//        response: { payload: <base64url(iv||ct||tag)>, expiresAt, burnAfterRead }
 //   GET   {apiBaseUrl}/info/:id       response: { expiresAt, burnAfterRead }
-//
-// Headers received on object GET:
-//   X-Expires-At, X-Burn-After-Read.
 
 "use strict";
 
 const http = require("node:http");
 const https = require("node:https");
 const { URL } = require("node:url");
+const { b64urlEncode, b64urlDecode } = require("./crypto");
 
 const VALID_EXPIRY = new Set(["1h", "24h", "7d"]);
 
@@ -46,7 +45,7 @@ function _request(opts) {
             body: Buffer.concat(chunks),
           });
         });
-      },
+      }
     );
     req.on("error", reject);
     if (opts.body) req.write(opts.body);
@@ -68,27 +67,28 @@ async function upload(ciphertext, opts) {
   if (!VALID_EXPIRY.has(expiry)) {
     throw new Error(`expiry must be one of: ${[...VALID_EXPIRY].join(", ")}`);
   }
+  const jsonBody = JSON.stringify({ payload: b64urlEncode(ciphertext) });
   const headers = {
-    "Content-Type": "application/octet-stream",
+    "Content-Type": "application/json",
     "X-License-Key": licenseKey || "",
     "X-Original-Name": name || "upload.bin",
     "X-Expiry": expiry,
     "X-Burn-After-Read": burnAfterRead ? "true" : "false",
-    "Content-Length": ciphertext.length,
+    "Content-Length": Buffer.byteLength(jsonBody),
   };
   if (apiToken) headers["Authorization"] = `Bearer ${apiToken}`;
   const res = await _request({
     method: "POST",
     url: `${(apiBaseUrl || "").replace(/\/+$/, "")}/upload`,
     headers,
-    body: ciphertext,
+    body: jsonBody,
   });
   if (res.statusCode === 401) throw new ApiError("missing or invalid X-License-Key", 401, res.body);
   if (res.statusCode < 200 || res.statusCode >= 300) {
     throw new ApiError(
       `upload failed (${res.statusCode})`,
       res.statusCode,
-      res.body,
+      res.body
     );
   }
   let json;
@@ -103,7 +103,10 @@ async function upload(ciphertext, opts) {
 
 async function download(id, opts) {
   const { apiBaseUrl, apiToken, licenseKey } = opts || {};
-  const headers = { "X-License-Key": licenseKey || "" };
+  const headers = {
+    "X-License-Key": licenseKey || "",
+    Accept: "application/json",
+  };
   if (apiToken) headers["Authorization"] = `Bearer ${apiToken}`;
   const res = await _request({
     method: "GET",
@@ -116,10 +119,25 @@ async function download(id, opts) {
   if (res.statusCode < 200 || res.statusCode >= 300) {
     throw new ApiError(`object failed (${res.statusCode})`, res.statusCode, res.body);
   }
+  let json;
+  try {
+    json = JSON.parse(res.body.toString("utf8"));
+  } catch {
+    throw new ApiError("object returned non-JSON", res.statusCode, res.body);
+  }
+  if (!json || typeof json.payload !== "string") {
+    throw new ApiError("object missing payload", res.statusCode, res.body);
+  }
+  let ciphertext;
+  try {
+    ciphertext = b64urlDecode(json.payload);
+  } catch (e) {
+    throw new ApiError("payload not base64url", res.statusCode, res.body);
+  }
   return {
-    ciphertext: res.body,
-    expiresAt: res.headers["x-expires-at"] || null,
-    burnAfterRead: res.headers["x-burn-after-read"] === "true",
+    ciphertext,
+    expiresAt: json.expiresAt || null,
+    burnAfterRead: !!json.burnAfterRead,
   };
 }
 
