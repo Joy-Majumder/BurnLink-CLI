@@ -26,7 +26,7 @@ const targets = [
   { src: "burnlink-macos-arm64",   platform: "macos",   archive: "tar.gz", dest: "burnlink",       wrapper: "burnlink-macos-arm64" },
   { src: "burnlink-linux-x64",     platform: "linux",   archive: "tar.gz", dest: "burnlink",       wrapper: "burnlink-linux-x64" },
   { src: "burnlink-linux-arm64",   platform: "linux",   archive: "tar.gz", dest: "burnlink",       wrapper: "burnlink-linux-arm64" },
-  { src: "burnlink-win-x64.exe",     platform: "windows", archive: "zip",  dest: "burnlink.exe",   wrapper: "burnlink-windows-x64" },
+  { src: "burnlink-windows-x64.exe", platform: "windows", archive: "zip",  dest: "burnlink.exe",   wrapper: "burnlink-windows-x64" },
 ];
 
 function sh(cmd, cwd) {
