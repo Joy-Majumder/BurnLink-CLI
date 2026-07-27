@@ -15,7 +15,7 @@
     "LICENSE"
   ],
   "scripts": {
-    "test": "node --test test/",
+    "test": "node --test test/*.test.js",
     "dev-server": "node server/index.js",
     "start": "node bin/burnlink.js",
     "prebuild": "node bin/embed-issuer-pub.js",

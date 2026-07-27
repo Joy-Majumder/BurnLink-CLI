@@ -2,30 +2,43 @@
 
 const test = require("node:test");
 const assert = require("node:assert/strict");
+const path = require("node:path");
 const license = require("../src/license");
 
+// Tests use a throwaway keypair committed under test/fixtures/ so the
+// test suite has no dependency on keys/issuer.key (which only lives on
+// the maintainer's machine).
+const FIXTURES = path.join(__dirname, "fixtures");
+const TEST_PRIV = path.join(FIXTURES, "test-issuer.key");
+const TEST_PUB = require("node:fs").readFileSync(
+  path.join(FIXTURES, "test-issuer.pub"),
+  "utf8"
+);
+const genOpts = { privateKeyPath: TEST_PRIV };
+const parseOpts = { publicKeyPem: TEST_PUB };
+
 test("generateKey → validateKey round-trips for STD", () => {
-  const key = license.generateKey(license.TIERS.STANDARD);
+  const key = license.generateKey(license.TIERS.STANDARD, genOpts);
   assert.ok(key.startsWith("BURNLINK-STD-"), "prefix matches");
-  const parsed = license.validateKey(key);
+  const parsed = license.validateKey(key, parseOpts);
   assert.equal(parsed.ok, true);
   assert.equal(parsed.tier, license.TIERS.STANDARD);
 });
 
 test("generateKey → validateKey round-trips for DEV", () => {
-  const key = license.generateKey(license.TIERS.DEV);
-  const parsed = license.validateKey(key);
+  const key = license.generateKey(license.TIERS.DEV, genOpts);
+  const parsed = license.validateKey(key, parseOpts);
   assert.equal(parsed.ok, true);
   assert.equal(parsed.tier, license.TIERS.DEV);
 });
 
 test("validateKey rejects a tampered checksum", () => {
-  const key = license.generateKey(license.TIERS.STANDARD);
+  const key = license.generateKey(license.TIERS.STANDARD, genOpts);
   // Flip a char in the checksum group; the new last char is the start
   // of the signature, so this also breaks the Ed25519 sig — either
   // failure mode is acceptable.
   const tampered = key.slice(0, -1) + (key.endsWith("A") ? "B" : "A");
-  const parsed = license.validateKey(tampered);
+  const parsed = license.validateKey(tampered, parseOpts);
   assert.equal(parsed.ok, false);
   assert.match(parsed.reason, /checksum|signature/);
 });
@@ -38,20 +51,20 @@ test("validateKey rejects malformed strings", () => {
     "BURNLINK-XXX-AAAA-BBBB-CCCC",
     "BURNLINK-STD-AAAA-BBBB-CCCC-EXTRA",
   ]) {
-    const parsed = license.validateKey(bad);
+    const parsed = license.validateKey(bad, parseOpts);
     assert.equal(parsed.ok, false, `should reject: ${bad}`);
   }
 });
 
 test("canUseCustomBackend blocks STD, allows DEV", () => {
-  const std = license.generateKey(license.TIERS.STANDARD);
-  const dev = license.generateKey(license.TIERS.DEV);
-  assert.equal(license.canUseCustomBackend(std), false);
-  assert.equal(license.canUseCustomBackend(dev), true);
+  const std = license.generateKey(license.TIERS.STANDARD, genOpts);
+  const dev = license.generateKey(license.TIERS.DEV, genOpts);
+  assert.equal(license.canUseCustomBackend(std, parseOpts), false);
+  assert.equal(license.canUseCustomBackend(dev, parseOpts), true);
 });
 
 test("two STD keys from the same source look distinct (random groups)", () => {
-  const a = license.generateKey(license.TIERS.STANDARD);
-  const b = license.generateKey(license.TIERS.STANDARD);
+  const a = license.generateKey(license.TIERS.STANDARD, genOpts);
+  const b = license.generateKey(license.TIERS.STANDARD, genOpts);
   assert.notEqual(a, b);
 });
