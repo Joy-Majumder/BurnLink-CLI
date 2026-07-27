@@ -1,0 +1,11 @@
+{
+  "scripts": "src/**/*.js",
+  "assets": [
+    "keys/issuer.pub",
+    "package.json"
+  ],
+  "targets": [
+    "node18-macos-arm64"
+  ],
+  "outputPath": "dist"
+}

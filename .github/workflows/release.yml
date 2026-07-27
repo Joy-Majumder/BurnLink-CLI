@@ -1,0 +1,105 @@
+name: release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: build-${{ matrix.target }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - node18-macos-x64
+          - node18-macos-arm64
+          - node18-linux-x64
+          - node18-linux-arm64
+          - node18-win-x64
+    steps:
+      - name: checkout
+        uses: actions/checkout@v4
+
+      - name: setup-node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: install
+        run: npm ci || npm install
+
+      - name: test
+        run: npm test
+
+      - name: build-binary
+        env:
+          PKG_CACHE_PATH: ${{ runner.temp }}/pkg-cache
+        run: |
+          mkdir -p "$PKG_CACHE_PATH"
+          npx pkg bin/burnlink.js \
+            --out-path dist \
+            --targets ${{ matrix.target }} \
+            --compress GZip
+
+      - name: rename
+        run: |
+          cd dist
+          case "${{ matrix.target }}" in
+            node18-macos-x64)   mv burnlink burnlink-macos-x64   ;;
+            node18-macos-arm64) mv burnlink burnlink-macos-arm64 ;;
+            node18-linux-x64)   mv burnlink burnlink-linux-x64   ;;
+            node18-linux-arm64) mv burnlink burnlink-linux-arm64 ;;
+            node18-win-x64)     mv burnlink.exe burnlink-windows-x64.exe ;;
+          esac
+          ls -la
+
+      - name: upload-artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: burnlink-${{ matrix.target }}
+          path: dist/*
+
+  release:
+    name: release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout
+        uses: actions/checkout@v4
+
+      - name: setup-node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: install
+        run: npm ci || npm install
+
+      - name: download-artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+
+      - name: package-archives
+        run: node bin/package-archives.js
+
+      - name: compute-shasums
+        working-directory: dist/release
+        run: sha256sum * > SHA256SUMS
+
+      - name: publish-release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/release/*
+            SHA256SUMS
+          generate_release_notes: true
+          fail_on_unmatched_files: true

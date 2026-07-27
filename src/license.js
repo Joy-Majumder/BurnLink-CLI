@@ -32,13 +32,27 @@ const TIERS = Object.freeze({
 const PREFIX = "BURNLINK";
 const GROUP_RE = /^[A-Z0-9]{4}$/;
 
-// Load the bundled issuer public key. It's the only thing clients need
-// to verify a license; the private key is never shipped.
+// Load the bundled issuer public key. The PEM string is embedded at
+// build time by bin/embed-issuer-pub.js, so pkg-built binaries don't
+// need to bundle any external file. We also try the on-disk path for
+// dev / installed runs.
+const EMBEDDED_PUB = require("./issuer-pub");
 const ISSUER_PUB_PATH = path.join(__dirname, "..", "keys", "issuer.pub");
 let _issuerPub = null;
 function _loadPub() {
   if (_issuerPub) return _issuerPub;
-  const pem = fs.readFileSync(ISSUER_PUB_PATH, "utf8");
+  let pem;
+  if (EMBEDDED_PUB && typeof EMBEDDED_PUB === "string") {
+    pem = EMBEDDED_PUB;
+  } else {
+    try {
+      pem = fs.readFileSync(ISSUER_PUB_PATH, "utf8");
+    } catch (e) {
+      throw new Error(
+        `issuer.pub not found at ${ISSUER_PUB_PATH} and no embedded copy`
+      );
+    }
+  }
   _issuerPub = crypto.createPublicKey(pem);
   return _issuerPub;
 }

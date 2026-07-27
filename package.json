@@ -2,20 +2,54 @@
   "name": "burnlink",
   "version": "0.1.0",
   "description": "BurnLink CLI — zero-knowledge, self-destructing file sharing from your terminal. Requires a BurnLink license key.",
-  "private": true,
+  "private": false,
   "license": "UNLICENSED",
   "bin": {
     "burnlink": "bin/burnlink.js"
   },
+  "files": [
+    "bin/",
+    "src/",
+    "keys/issuer.pub",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
     "test": "node --test test/",
     "dev-server": "node server/index.js",
-    "start": "node bin/burnlink.js"
+    "start": "node bin/burnlink.js",
+    "prebuild": "node bin/embed-issuer-pub.js",
+    "prepublishOnly": "node bin/embed-issuer-pub.js",
+    "postinstall": "node bin/embed-issuer-pub.js",
+    "build:binaries": "npx pkg bin/burnlink.js --out-path dist --targets node18-macos-x64,node18-macos-arm64,node18-win-x64,node18-linux-x64,node18-linux-arm64 --compress GZip",
+    "build:mac": "npx pkg bin/burnlink.js --out-path dist --targets node18-macos-x64,node18-macos-arm64 --compress GZip",
+    "build:linux": "npx pkg bin/burnlink.js --out-path dist --targets node18-linux-x64,node18-linux-arm64 --compress GZip",
+    "build:win": "npx pkg bin/burnlink.js --out-path dist --targets node18-win-x64 --compress GZip",
+    "release": "npm run build:binaries && npm run package:archives",
+    "package:archives": "node bin/package-archives.js"
   },
   "engines": {
     "node": ">=18.0.0"
   },
   "type": "commonjs",
-  "dependencies": {},
-  "devDependencies": {}
+  "keywords": [
+    "burnlink",
+    "cli",
+    "encryption",
+    "zero-knowledge",
+    "file-sharing",
+    "self-destruct",
+    "e2ee"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Joy-Majumder/BurnLink-CLI.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Joy-Majumder/BurnLink-CLI/issues"
+  },
+  "homepage": "https://burnlink.page",
+  "devDependencies": {
+    "pkg": "^5.8.1"
+  }
 }
