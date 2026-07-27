@@ -10,6 +10,9 @@
 //   burnlink-linux-x64.tar.gz
 //   burnlink-linux-arm64.tar.gz
 //   burnlink-windows-x64.zip
+// Plus the standalone installer scripts:
+//   install.sh     (curl | sh entry point, hosted at burnlink.page/install.sh)
+//   install.ps1    (irm | iex entry point, hosted at burnlink.page/install.ps1)
 
 "use strict";
 
@@ -22,11 +25,11 @@ const out = path.join(dist, "release");
 fs.mkdirSync(out, { recursive: true });
 
 const targets = [
-  { src: "burnlink-macos-x64",     platform: "macos",   archive: "tar.gz", dest: "burnlink",       wrapper: "burnlink-macos-x64" },
-  { src: "burnlink-macos-arm64",   platform: "macos",   archive: "tar.gz", dest: "burnlink",       wrapper: "burnlink-macos-arm64" },
-  { src: "burnlink-linux-x64",     platform: "linux",   archive: "tar.gz", dest: "burnlink",       wrapper: "burnlink-linux-x64" },
-  { src: "burnlink-linux-arm64",   platform: "linux",   archive: "tar.gz", dest: "burnlink",       wrapper: "burnlink-linux-arm64" },
-  { src: "burnlink-windows-x64.exe", platform: "windows", archive: "zip",  dest: "burnlink.exe",   wrapper: "burnlink-windows-x64" },
+  { src: "burnlink-macos-x64",       platform: "macos",   archive: "tar.gz", dest: "burnlink",     wrapper: "burnlink-macos-x64" },
+  { src: "burnlink-macos-arm64",     platform: "macos",   archive: "tar.gz", dest: "burnlink",     wrapper: "burnlink-macos-arm64" },
+  { src: "burnlink-linux-x64",       platform: "linux",   archive: "tar.gz", dest: "burnlink",     wrapper: "burnlink-linux-x64" },
+  { src: "burnlink-linux-arm64",     platform: "linux",   archive: "tar.gz", dest: "burnlink",     wrapper: "burnlink-linux-arm64" },
+  { src: "burnlink-windows-x64.exe", platform: "windows", archive: "zip",    dest: "burnlink.exe", wrapper: "burnlink-windows-x64" },
 ];
 
 function sh(cmd, cwd) {
@@ -60,6 +63,29 @@ function packageArchive(tmpDir, t) {
   return archiveName;
 }
 
+// Copy the install scripts into dist/release/ so they ride along with
+// every GitHub release. The server's /install.sh redirects here.
+function packageInstallers() {
+  const repoRoot = path.join(__dirname, "..");
+  const installers = [
+    { src: path.join(repoRoot, "install.sh"),  dest: "install.sh" },
+    { src: path.join(repoRoot, "install.ps1"), dest: "install.ps1" },
+  ];
+  const copied = [];
+  for (const i of installers) {
+    if (!fs.existsSync(i.src)) {
+      console.error(`! skipping ${path.basename(i.src)} (not found at repo root)`);
+      continue;
+    }
+    const target = path.join(out, i.dest);
+    fs.copyFileSync(i.src, target);
+    if (i.dest.endsWith(".sh")) fs.chmodSync(target, 0o755);
+    copied.push(i.dest);
+    console.log(`✓ dist/release/${i.dest}`);
+  }
+  return copied;
+}
+
 const built = [];
 for (const t of targets) {
   const src = path.join(dist, t.src);
@@ -76,9 +102,13 @@ for (const t of targets) {
 // Clean up staging tree.
 fs.rmSync(path.join(dist, "stage"), { recursive: true, force: true });
 
-// SHA256 sums for every archive.
+// Bundle the installer scripts alongside the binaries.
+const installers = packageInstallers();
+
+// SHA256 sums for every release artifact (binaries + installers).
+const all = [...built, ...installers].sort();
 const sums = [];
-for (const f of built.sort()) {
+for (const f of all) {
   const full = path.join(out, f);
   const h = execSync(`shasum -a 256 "${full}"`).toString().trim();
   sums.push(h);

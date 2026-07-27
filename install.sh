@@ -1,22 +1,56 @@
 #!/usr/bin/env bash
 # BurnLink CLI installer — macOS / Linux
-# Usage: curl -fsSL https://burnlink.page/install.sh | sh
 #
-# Detects OS + architecture, downloads the matching release tarball
-# from GitHub Releases, verifies SHA256, and installs the binary to
-# ~/.burnlink/bin/burnlink (with the directory added to PATH for the
-# current shell session via a shell-rc snippet).
+# Usage:
+#   curl -fsSL https://burnlink.page/install.sh | sh
+#
+# Strategy (in order):
+#   1. If `npm` is on PATH and we have network → `npm i -g burnlink`
+#      (cleanest install: real package manager, easy upgrades, easy uninstall)
+#   2. Otherwise, fall back to fetching the matching release tarball from
+#      GitHub Releases, verifying SHA256, and installing to
+#      ~/.burnlink/bin/burnlink (with shell-rc PATH hint).
+#
+# Overrides (env vars):
+#   BURNLINK_REPO          GitHub repo (default: Joy-Majumder/BurnLink-CLI)
+#   BURNLINK_INSTALL_DIR   Install location for tarball flow (default: ~/.burnlink/bin)
+#   BURNLINK_NO_NPM=1      Skip npm even if available (force tarball)
+#   BURNLINK_CHANNEL       npm tag: latest | dev | next (default: latest)
 
 set -euo pipefail
 
 REPO="${BURNLINK_REPO:-Joy-Majumder/BurnLink-CLI}"
 INSTALL_DIR="${BURNLINK_INSTALL_DIR:-$HOME/.burnlink/bin}"
 BIN_NAME="burnlink"
+CHANNEL="${BURNLINK_CHANNEL:-latest}"
 
-log() { printf '\033[1;34m[burnlink]\033[0m %s\n' "$*" >&2; }
+log()  { printf '\033[1;34m[burnlink]\033[0m %s\n' "$*" >&2; }
 fail() { printf '\033[1;31m[burnlink]\033[0m %s\n' "$*" >&2; exit 1; }
 
-# --- 1. detect OS + arch ----------------------------------------------------
+# --- path 1: npm ------------------------------------------------------------
+have_npm() {
+  command -v npm >/dev/null 2>&1 && command -v node >/dev/null 2>&1
+}
+
+npm_install() {
+  log "npm + node detected → using 'npm install -g burnlink@$CHANNEL'"
+  log "(set BURNLINK_NO_NPM=1 to force the tarball install)"
+  # Use --silent to keep the curl|sh pipe quiet; npm prints its own progress.
+  npm install -g "burnlink@$CHANNEL" --silent
+  local bin
+  bin="$(npm root -g 2>/dev/null)/../bin/$BIN_NAME"
+  if [ -x "$bin" ]; then
+    log "installed → $bin"
+  fi
+  log "done. run: $BIN_NAME --version"
+}
+
+if [ "${BURNLINK_NO_NPM:-}" != "1" ] && have_npm; then
+  npm_install
+  exit 0
+fi
+
+# --- path 2: tarball --------------------------------------------------------
 uname_s="$(uname -s)"
 uname_m="$(uname -m)"
 
@@ -33,16 +67,16 @@ case "$uname_m" in
 esac
 
 archive_name="burnlink-${platform}-${arch}.tar.gz"
-log "detected ${platform}/${arch}"
+log "detected ${platform}/${arch} (npm not found, using tarball)"
+log "install npm + Node.js for a cleaner experience: https://nodejs.org"
 
-# --- 2. fetch latest release tag --------------------------------------------
+# fetch latest release tag
 log "fetching latest release..."
 release_json="$(curl -fsSL "https://api.github.com/repos/${REPO}/releases/latest")"
 tag="$(printf '%s' "$release_json" | grep -m1 '"tag_name"' | sed -E 's/.*"tag_name"[[:space:]]*:[[:space:]]*"([^"]+)".*/\1/')"
 [ -n "$tag" ] || fail "could not determine latest release"
 log "latest version: $tag"
 
-# --- 3. download + verify ---------------------------------------------------
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
 
@@ -64,13 +98,11 @@ else
   log "WARNING: SHA256SUMS not available, skipping verification"
 fi
 
-# --- 4. extract + install ----------------------------------------------------
 mkdir -p "$INSTALL_DIR"
 tar -xzf "$tmp/$archive_name" -C "$INSTALL_DIR"
 chmod +x "$INSTALL_DIR/$BIN_NAME"
 log "installed → $INSTALL_DIR/$BIN_NAME"
 
-# --- 5. PATH hint -----------------------------------------------------------
 case ":$PATH:" in
   *":$INSTALL_DIR:"*) ;;
   *)
