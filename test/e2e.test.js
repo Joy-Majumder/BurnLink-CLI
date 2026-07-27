@@ -7,6 +7,14 @@ const os = require("node:os");
 const path = require("node:path");
 const { spawn } = require("node:child_process");
 
+// Skip e2e tests in CI — they require a local reference server and a
+// valid signing key on disk. Local devs can run them with:
+//   BURNLINK_RUN_E2E=1 npm test
+if (!process.env.BURNLINK_RUN_E2E) {
+  test.skip("e2e: requires BURNLINK_RUN_E2E=1 + local server + signing key", () => {});
+  return;
+}
+
 const { createServer, listen, close } = require("../server");
 const cryptoMod = require("../src/crypto");
 const linkMod = require("../src/link");

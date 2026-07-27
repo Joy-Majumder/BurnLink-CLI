@@ -34,10 +34,16 @@ test("generateKey → validateKey round-trips for DEV", () => {
 
 test("validateKey rejects a tampered checksum", () => {
   const key = license.generateKey(license.TIERS.STANDARD, genOpts);
-  // Flip a char in the checksum group; the new last char is the start
-  // of the signature, so this also breaks the Ed25519 sig — either
-  // failure mode is acceptable.
-  const tampered = key.slice(0, -1) + (key.endsWith("A") ? "B" : "A");
+  // Tamper a char in the checksum group (positions 19..22 of "BURNLINK-STD-XXXX-XXXX-CCCC.<sig>").
+  // Flip a char deep inside the checksum so the signature is definitely
+  // for a different body and cannot verify.
+  const dot = key.indexOf(".");
+  const body = key.slice(0, dot);
+  const checksumStart = body.length - 4;
+  const ch = body[checksumStart];
+  const replaced = ch === "A" ? "B" : "A";
+  const tamperedBody = body.slice(0, checksumStart) + replaced + body.slice(checksumStart + 1);
+  const tampered = tamperedBody + key.slice(dot);
   const parsed = license.validateKey(tampered, parseOpts);
   assert.equal(parsed.ok, false);
   assert.match(parsed.reason, /checksum|signature/);
