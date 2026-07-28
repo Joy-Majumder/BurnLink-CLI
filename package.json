@@ -1,6 +1,6 @@
 {
   "name": "burnlink",
-  "version": "0.1.7",
+  "version": "0.1.8",
   "description": "BurnLink CLI — zero-knowledge, self-destructing file sharing from your terminal. Requires a BurnLink license key.",
   "author": {
     "name": "Joy-Majumder",
@@ -10,7 +10,7 @@
   "private": false,
   "license": "SEE LICENSE IN LICENSE",
   "bin": {
-    "burnlink": "bin/burnlink.js"
+    "burnlink": "bin/burnlink"
   },
   "files": [
     "bin/",

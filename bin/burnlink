@@ -1,0 +1,66 @@
+#!/usr/bin/env bash
+# BurnLink CLI launcher — locates a node binary and exec's the JS entry point.
+# This wrapper exists because `#!/usr/bin/env node` fails in stripped PATH
+# environments (editor subshells, git hooks, cron, launchd) where env can't
+# resolve `node`. We try several common locations before giving up.
+set -e
+
+# Resolve the absolute path of this script (following symlinks), then find
+# the real bin/burnlink.js that lives next to it.
+SELF="$0"
+while [ -L "$SELF" ]; do
+  LINK_TARGET="$(readlink "$SELF")"
+  case "$LINK_TARGET" in
+    /*) SELF="$LINK_TARGET" ;;
+    *) SELF="$(dirname "$SELF")/$LINK_TARGET" ;;
+  esac
+done
+SCRIPT_DIR="$(cd "$(dirname "$SELF")" && pwd)"
+ENTRY="$SCRIPT_DIR/burnlink.js"
+
+if [ ! -f "$ENTRY" ]; then
+  echo "burnlink: cannot find entry script at $ENTRY" >&2
+  exit 127
+fi
+
+# Find node. Order matters — `command -v` honors PATH first, then we fall
+# back to well-known absolute paths for Homebrew / nvm / system installs.
+find_node() {
+  if command -v node >/dev/null 2>&1; then
+    command -v node
+    return 0
+  fi
+  for candidate in \
+    /opt/homebrew/bin/node \
+    /usr/local/bin/node \
+    "$HOME/.nvm/versions/node/$(ls -1 "$HOME/.nvm/versions/node" 2>/dev/null | sort -V | tail -1)/bin/node" \
+    /usr/bin/node \
+    /usr/local/n/versions/node/$(ls -1 /usr/local/n/versions/node 2>/dev/null | sort -V | tail -1)/bin/node \
+    "$HOME/.npm-global/bin/node" \
+    "$HOME/.local/bin/node" \
+    ; do
+    if [ -x "$candidate" ]; then
+      echo "$candidate"
+      return 0
+    fi
+  done
+  return 1
+}
+
+NODE_BIN="$(find_node || true)"
+if [ -z "$NODE_BIN" ]; then
+  echo "burnlink: could not find a node.js runtime (>=18)." >&2
+  echo "          Install Node from https://nodejs.org or via 'brew install node'." >&2
+  echo "          Then re-run: npm i -g burnlink" >&2
+  exit 127
+fi
+
+# Version guard (matches package.json "engines.node": ">=18").
+NODE_MAJOR="$("$NODE_BIN" -p 'process.versions.node.split(".")[0]' 2>/dev/null || echo 0)"
+if [ "$NODE_MAJOR" -lt 18 ] 2>/dev/null; then
+  echo "burnlink: node $("$NODE_BIN" -v) is too old. BurnLink requires node >=18." >&2
+  echo "          Upgrade Node and re-run: npm i -g burnlink" >&2
+  exit 1
+fi
+
+exec "$NODE_BIN" "$ENTRY" "$@"
