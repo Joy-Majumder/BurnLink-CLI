@@ -311,52 +311,130 @@ die("usage: burnlink config <get|set> [key] [value]");
 function cmdUninstall(args) {
   const yes = args.yes || args.y;
 
-  // Detect install mode. Tarball flow installs to ~/.burnlink/bin/burnlink.
-  // npm flow installs to <npm root -g>/burnlink.
+  // Detect install mode.
+  //   tarball: ~/.burnlink/.burnlink-install marker + ~/.burnlink/bin/burnlink
+  //   npm:     <npm prefix>/bin/burnlink + <npm prefix>/lib/node_modules/burnlink
   const tarballDir = path.join(os.homedir(), ".burnlink");
   const tarballBin = path.join(tarballDir, "bin", "burnlink");
   const tarballMarker = path.join(tarballDir, ".burnlink-install");
   const isTarball =
     fs.existsSync(tarballBin) && fs.existsSync(tarballMarker);
 
+  // For npm installs we need the global prefix. Try `npm config get prefix`,
+  // fall back to npm_config_prefix env, fall back to NVM/Node defaults.
+  function npmGlobalPrefix() {
+    // 1. Ask npm directly using the *user* npmrc (npm's own resolution).
+    try {
+      const userRc = path.join(os.homedir(), ".npmrc");
+      const env = Object.assign({}, process.env);
+      // Force npm to consult the user npmrc by clearing any prefix env.
+      delete env.npm_config_prefix;
+      const args = ["config", "get", "prefix", "--userconfig", userRc];
+      const out = execFileSync("npm", args, {
+        encoding: "utf8",
+        stdio: ["ignore", "pipe", "ignore"],
+        env,
+      });
+      const p = out.trim();
+      if (p && p !== "undefined") return p;
+    } catch (_) {}
+    // 2. Parse ~/.npmrc ourselves for `prefix=...`.
+    try {
+      const userRc = path.join(os.homedir(), ".npmrc");
+      if (fs.existsSync(userRc)) {
+        const txt = fs.readFileSync(userRc, "utf8");
+        const m = txt.match(/^\s*prefix\s*=\s*(.+)\s*$/m);
+        if (m) return m[1].trim();
+      }
+    } catch (_) {}
+    // 3. Env var.
+    if (process.env.npm_config_prefix) return process.env.npm_config_prefix;
+    // 4. Fallback: parent of node's bin dir.
+    return path.dirname(path.dirname(process.execPath));
+  }
+
+  function planDescription() {
+    if (isTarball) {
+      const lines = [];
+      lines.push("  \u2022 remove " + tarballDir);
+      lines.push("  \u2022 strip PATH exports from ~/.zshrc / ~/.bashrc / ~/.profile");
+      lines.push("  \u2022 strip PATH exports from fish config (if present)");
+      return lines;
+    }
+    const prefix = npmGlobalPrefix();
+    const bin = path.join(prefix, "bin", "burnlink");
+    const pkg = path.join(prefix, "lib", "node_modules", "burnlink");
+    const lines = [];
+    lines.push("  \u2022 remove " + bin + " (npm bin shim)");
+    lines.push("  \u2022 remove " + pkg + " (npm package)");
+    lines.push("  \u2022 run: npm uninstall -g burnlink  (to keep npm's registry state clean)");
+    return lines;
+  }
+
+  function confirm() {
+    process.stdout.write("Continue? [y/N] ");
+    let line = "";
+    try {
+      const buf = Buffer.alloc(1024);
+      const n = fs.readSync(0, buf, 0, 1024, null);
+      line = buf.slice(0, n).toString("utf8");
+    } catch (_) {
+      line = "";
+    }
+    return /^y(es)?$/i.test(line.trim());
+  }
+
   if (!yes) {
     console.log(BOLD("BurnLink uninstall"));
     console.log("");
     if (isTarball) {
       console.log("Detected tarball install at:", tarballDir);
-      console.log("");
-      console.log("This will:");
-      console.log("  • remove", tarballDir);
-      console.log("  • strip PATH exports from ~/.zshrc / ~/.bashrc / ~/.profile");
-      console.log("  • strip PATH exports from fish config (if present)");
-      console.log("");
-      process.stdout.write("Continue? [y/N] ");
-      let line = "";
-      try {
-        // fs.readSync on fd 0 reads up to N bytes synchronously from stdin.
-        // In an interactive TTY, the user types a line and hits enter.
-        // In a non-interactive pipe (e.g. CI), this returns 0 and we abort.
-        const buf = Buffer.alloc(1024);
-        const n = fs.readSync(0, buf, 0, 1024, null);
-        line = buf.slice(0, n).toString("utf8");
-      } catch (_) {
-        line = "";
-      }
-      if (!/^y(es)?$/i.test(line.trim())) die("aborted");
     } else {
       console.log("Detected npm install.");
-      console.log("");
-      console.log("Run this yourself:");
-      console.log(BOLD("  npm uninstall -g burnlink"));
-      console.log("");
-      console.log("(We can't uninstall ourselves in-process — npm would yank");
-      console.log(" the running binary out from under the uninstall command.)");
-      return;
     }
+    console.log("");
+    console.log("This will:");
+    for (const l of planDescription()) console.log(l);
+    console.log("");
+    if (!confirm()) die("aborted");
   }
 
   if (!isTarball) {
-    console.log(BOLD("  npm uninstall -g burnlink"));
+    // npm mode.
+    const prefix = npmGlobalPrefix();
+    const bin = path.join(prefix, "bin", "burnlink");
+    const pkg = path.join(prefix, "lib", "node_modules", "burnlink");
+
+    // Direct fs cleanup. `npm uninstall` would also rewrite the npm registry
+    // metadata in package-lock + shrinkwrap, but for a global install there's
+    // no lockfile to maintain — global installs don't track deps in package.json.
+    if (fs.existsSync(bin)) {
+      try { fs.unlinkSync(bin); ok("removed " + bin); }
+      catch (e) { info("could not remove " + bin + ": " + e.message); }
+    }
+    if (fs.existsSync(pkg)) {
+      try {
+        const stat = fs.lstatSync(pkg);
+        if (stat.isSymbolicLink()) {
+          fs.unlinkSync(pkg);
+          ok("unlinked " + pkg);
+        } else {
+          fs.rmSync(pkg, { recursive: true, force: true });
+          ok("removed " + pkg);
+        }
+      } catch (e) { info("could not remove " + pkg + ": " + e.message); }
+    }
+    // Best-effort: ask npm to forget the package too. Spawn detached so npm
+    // doesn't yank the still-running binary (it shouldn't, since we already
+    // removed the bin shim and the lib/node_modules dir above, but defensive).
+    try {
+      spawnSync("npm", ["uninstall", "-g", "burnlink"], {
+        detached: true,
+        stdio: "ignore",
+      });
+    } catch (_) {}
+    console.log("");
+    ok("BurnLink uninstalled. Open a new shell to drop it from PATH.");
     return;
   }
 
@@ -377,8 +455,6 @@ function cmdUninstall(args) {
     if (!fs.existsSync(f)) continue;
     let txt = fs.readFileSync(f, "utf8");
     const before = txt;
-    // Drop the marker line and any preceding `export PATH=…` line that
-    // referenced ~/.burnlink/bin.
     const lines = txt.split(/\r?\n/);
     const out = [];
     for (let i = 0; i < lines.length; i++) {
