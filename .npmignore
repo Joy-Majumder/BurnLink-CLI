@@ -9,15 +9,38 @@ coverage/
 *.tgz
 .puku
 dist/
+
+# Tests — never ship
 test/
 tests/
 *.test.js
+
+# Repo metadata — never ship
 .gitignore
 .github/
+
+# Reference dev backend — never ship to end users; this is the
+# in-memory fixture used by the e2e tests only.
 server/
+
+# Migrations / one-off scripts — never ship
 migrations/
-keys/*.key
-keys/issuer.key
 security-audit.js
 run-migrations.js
 check_schema.js
+
+# Issuer key — never ship. The matching .pub (public verification key)
+# is bundled; the .key (signing key) only exists on the maintainer's
+# machine.
+keys/*.key
+keys/issuer.key
+
+# Dev-only CLI tools — these mint/sign keys or build binaries. They
+# are NOT for end users. (gen-key was extracted from bin/burnlink.js
+# in v0.2.0; the remaining dev scripts are also dev-only.)
+bin/gen-key-dev.js
+bin/gen-issuer.js
+bin/sign-key.js
+bin/embed-issuer-pub.js
+bin/package-archives.js
+bin/postinstall.js

@@ -1,19 +1,19 @@
 {
   "name": "burnlink",
-  "version": "0.1.9",
-  "description": "BurnLink CLI — zero-knowledge, self-destructing file sharing from your terminal. Requires a BurnLink license key.",
+  "version": "0.2.0",
+  "description": "BurnLink CLI — zero-knowledge, self-destructing file sharing from your terminal.",
   "author": {
-    "name": "Joy-Majumder",
-    "email": "joy.majumder@users.noreply.github.com",
-    "url": "https://github.com/Joy-Majumder"
+    "name": "Joy G. Majumdar",
+    "email": "gopalmajumdarjoy@gmail.com",
+    "url": "https://github.com/paperfrogs-hq"
   },
   "private": false,
-  "license": "SEE LICENSE IN LICENSE",
+  "license": "MIT",
   "bin": {
     "burnlink": "bin/burnlink.js"
   },
   "files": [
-    "bin/",
+    "bin/burnlink.js",
     "src/",
     "keys/issuer.pub",
     "README.md",
@@ -44,17 +44,24 @@
     "zero-knowledge",
     "file-sharing",
     "self-destruct",
-    "e2ee"
+    "e2ee",
+    "aes-gcm",
+    "ed25519",
+    "open-source"
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Joy-Majumder/BurnLink-CLI.git"
+    "url": "git+https://github.com/paperfrogs-hq/BurnLink-CLI.git"
   },
   "bugs": {
-    "url": "https://github.com/Joy-Majumder/BurnLink-CLI/issues"
+    "url": "https://github.com/paperfrogs-hq/BurnLink-CLI/issues"
   },
   "homepage": "https://burnlink.page",
   "devDependencies": {
     "pkg": "^5.8.1"
+  },
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org/",
+    "access": "public"
   }
 }

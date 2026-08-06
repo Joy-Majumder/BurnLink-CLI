@@ -32,7 +32,6 @@ COMMANDS
   activate <key>         Install / register a license key.
   deactivate             Remove the active license key.
   status                 Show license tier, endpoints, and version.
-  gen-key <STD|DEV>      [dev] Generate a license key (offline tool).
   upload <file>          Encrypt a file and print a one-time burn link.
   download <url>         Decrypt a burn link into the current directory.
                          Use --out <path> to write elsewhere.
@@ -160,29 +159,7 @@ function cmdStatus() {
   console.log("links:      ", cfg.linkBaseUrl);
 }
 
-function cmdGenKey(args) {
-  const tierRaw = args._[1];
-  if (!tierRaw) die("usage: burnlink gen-key <STD|DEV>");
-  const tier = tierRaw.toUpperCase();
-  if (!Object.values(license.TIERS).includes(tier)) {
-    die(`unknown tier "${tierRaw}" — use STD or DEV`);
-  }
-  // Gated: STD key generation requires the existing key to be STD or DEV.
-  // DEV key generation is the dev's own escape hatch — open by design.
-  if (tier === license.TIERS.STANDARD) {
-    const cfg = loadConfig();
-    if (cfg.licenseKey) {
-      const existing = license.validateKey(cfg.licenseKey);
-      if (!existing.ok || existing.tier === license.TIERS.STANDARD) {
-        die("STD keys cannot mint other STD keys. Activate a DEV key first.");
-      }
-    } else {
-      die("activating a STD key requires an existing DEV license.");
-    }
-  }
-  const key = license.generateKey(tier);
-  console.log(key);
-}
+
 
 async function cmdUpload(args) {
   const { cfg } = requireKey();
@@ -523,7 +500,6 @@ const ROUTES = {
   activate: cmdActivate,
   deactivate: cmdDeactivate,
   status: cmdStatus,
-  "gen-key": cmdGenKey,
   upload: cmdUpload,
   download: cmdDownload,
   info: cmdInfo,
