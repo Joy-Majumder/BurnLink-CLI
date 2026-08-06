@@ -12,7 +12,7 @@
 #      ~/.burnlink/bin/burnlink (with shell-rc PATH hint).
 #
 # Overrides (env vars):
-#   BURNLINK_REPO          GitHub repo (default: Joy-Majumder/BurnLink-CLI)
+#   BURNLINK_REPO          GitHub repo (default: paperfrogs-hq/BurnLink-CLI)
 #   BURNLINK_INSTALL_DIR   Install location for tarball flow (default: ~/.burnlink/bin)
 #   BURNLINK_NO_NPM=1      Skip npm even if available (force tarball)
 #   BURNLINK_CHANNEL       npm tag: latest | dev | next (default: latest)
