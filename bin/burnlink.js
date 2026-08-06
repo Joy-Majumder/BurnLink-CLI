@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // BurnLink CLI — entry point.
-// Closed-source commercial tool. Source lives at github.com/Joy-Majumder/BurnLink-CLI.
+// Closed-source commercial tool. Source lives at github.com/paperfrogs-hq/BurnLink-CLI.
 // Distribute via npm + signed binaries; do not redistribute source.
 
 "use strict";

@@ -19,7 +19,7 @@
 
 set -euo pipefail
 
-REPO="${BURNLINK_REPO:-Joy-Majumder/BurnLink-CLI}"
+REPO="${BURNLINK_REPO:-paperfrogs-hq/BurnLink-CLI}"
 INSTALL_DIR="${BURNLINK_INSTALL_DIR:-$HOME/.burnlink/bin}"
 BIN_NAME="burnlink"
 CHANNEL="${BURNLINK_CHANNEL:-latest}"

@@ -18,7 +18,7 @@
 
 $ErrorActionPreference = 'Stop'
 
-$Repo = if ($env:BURNLINK_REPO) { $env:BURNLINK_REPO } else { 'Joy-Majumder/BurnLink-CLI' }
+$Repo = if ($env:BURNLINK_REPO) { $env:BURNLINK_REPO } else { 'paperfrogs-hq/BurnLink-CLI' }
 $InstallDir = if ($env:BURNLINK_INSTALL_DIR) { $env:BURNLINK_INSTALL_DIR } else {
   Join-Path $env:LOCALAPPDATA 'BurnLink\bin'
 }
