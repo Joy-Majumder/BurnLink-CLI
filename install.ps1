@@ -11,7 +11,7 @@
 #      PATH for future sessions).
 #
 # Overrides (env vars):
-#   $env:BURNLINK_REPO        GitHub repo (default: Joy-Majumder/BurnLink-CLI)
+#   $env:BURNLINK_REPO        GitHub repo (default: paperfrogs-hq/BurnLink-CLI)
 #   $env:BURNLINK_INSTALL_DIR Override install location
 #   $env:BURNLINK_NO_NPM      "1" to skip npm even if available
 #   $env:BURNLINK_CHANNEL     npm tag: latest | dev | next (default: latest)
