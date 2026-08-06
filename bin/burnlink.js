@@ -15,10 +15,11 @@ const license = require("../src/license");
 const linkMod = require("../src/link");
 const configMod = require("../src/config");
 const api = require("../src/api");
+const { parseBoolArg } = require("../src/args");
 
 const VERSION = require("../package.json").version;
-const DEFAULT_API = "https://burnlink.page";
-const DEFAULT_LINK = "https://burnlink.page";
+// apiBaseUrl / linkBaseUrl come from src/config.js DEFAULTS (which already
+// include the `/api/cli` path prefix). No fallbacks needed here.
 
 const HELP = `
 BurnLink CLI v${VERSION}
@@ -108,10 +109,9 @@ function parseArgs(argv) {
 }
 
 function loadConfig() {
-  const cfg = configMod.loadConfig();
-  cfg.apiBaseUrl = cfg.apiBaseUrl || DEFAULT_API;
-  cfg.linkBaseUrl = cfg.linkBaseUrl || DEFAULT_LINK;
-  return cfg;
+  // src/config.js DEFAULTS already provide apiBaseUrl/linkBaseUrl fallbacks
+  // (apiBaseUrl includes the /api/cli path prefix). No extra fallbacks here.
+  return configMod.loadConfig();
 }
 
 function requireKey() {
@@ -193,8 +193,11 @@ async function cmdUpload(args) {
 
   const plaintext = fs.readFileSync(abs);
   const name = path.basename(abs);
-  const expiry = args.expiry || "24h";
-  const burn = args["burn-after-read"] !== false; // default true
+  const expiry = args.expiry || cfg.defaultExpiry || "24h";
+  if (!api.VALID_EXPIRY.has(expiry)) {
+    die(`invalid --expiry "${expiry}"; allowed: 1h, 24h, 7d`);
+  }
+  const burn = parseBoolArg(args["burn-after-read"], true);
 
   const { ciphertext, key, iv } = crypto.encrypt(plaintext);
   info(`encrypted ${plaintext.length} bytes → ${ciphertext.length} bytes`);
@@ -219,7 +222,7 @@ async function cmdDownload(args) {
   const urlRaw = args._[1];
   if (!urlRaw) die("usage: burnlink download <url> [--out <path>]");
   const parsed = linkMod.parse(urlRaw);
-  if (!parsed) die("could not parse burn link");
+  if (!parsed.ok) die(`could not parse burn link: ${parsed.reason}`);
 
   info(`fetching ${parsed.id}…`);
   const { ciphertext, expiresAt, originalName } = await api.download(parsed.id, {
@@ -264,7 +267,7 @@ async function cmdInfo(args) {
   // accept either full URL or bare id
   let id = raw;
   const parsed = linkMod.parse(raw);
-  if (parsed) id = parsed.id;
+  if (parsed.ok) id = parsed.id;
   const meta = await api.info(id, {
     apiBaseUrl: cfg.apiBaseUrl,
     apiToken: cfg.apiToken,
@@ -276,10 +279,33 @@ async function cmdInfo(args) {
   if (meta.originalName) console.log("filename:  ", meta.originalName);
 }
 
+// Per-key validators for `burnlink config set <key> <value>`. Throw on
+// invalid input; the message bubbles up to die() with a friendly prefix.
+const CONFIG_VALIDATORS = {
+  defaultExpiry: (v) => {
+    if (!api.VALID_EXPIRY.has(v)) {
+      throw new Error(`defaultExpiry must be one of: 1h, 24h, 7d (got "${v}")`);
+    }
+    return v;
+  },
+  apiBaseUrl: (v) => {
+    if (!/^https?:\/\//.test(v)) {
+      throw new Error("apiBaseUrl must start with http:// or https://");
+    }
+    return v.replace(/\/+$/, "");
+  },
+  linkBaseUrl: (v) => {
+    if (!/^https?:\/\//.test(v)) {
+      throw new Error("linkBaseUrl must start with http:// or https://");
+    }
+    return v.replace(/\/+$/, "");
+  },
+};
+
 function cmdConfig(args) {
   const sub = args._[1];
   const key = args._[2];
-  const val = args._[3];
+  let val = args._[3];
   const cfg = loadConfig();
 
   if (sub === "get") {
@@ -293,6 +319,15 @@ function cmdConfig(args) {
 
   if (sub === "set") {
     if (!key || val === undefined) die("usage: burnlink config set <key> <value>");
+    // Per-key validation. Validate first so a bad value is rejected even
+    // if the user wouldn't be allowed to set it anyway.
+    if (CONFIG_VALIDATORS[key]) {
+      try {
+        val = CONFIG_VALIDATORS[key](val);
+      } catch (e) {
+        die(e.message);
+      }
+    }
     // Gate: STD tier cannot redirect to a different backend.
     if ((key === "apiBaseUrl" || key === "linkBaseUrl") && cfg.licenseKey) {
       const parsed = license.validateKey(cfg.licenseKey);
