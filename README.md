@@ -2,6 +2,19 @@
 
 Zero-knowledge, self-destructing file sharing from your terminal.
 
+## Install
+
+```bash
+npm install -g burnlink
+```
+
+> macOS / Linux: `curl -fsSL https://burnlink.page/install.sh | sh`
+> Windows: `irm https://burnlink.page/install.ps1 | iex`
+
+That's it. No account, no payment, no signup. The CLI is free and
+open-source under MIT. You bring your own license key (see [Quick
+start](#quick-start)).
+
 ```bash
 burnlink activate <key>
 burnlink upload ./secrets.zip          # encrypted + uploaded + prints a link
@@ -15,17 +28,6 @@ never sends over the network. The server only ever sees ciphertext.
 
 Burn-after-read deletes the payload from the server after the first
 successful download, so the link self-destructs.
-
----
-
-## Install
-
-```bash
-npm install -g burnlink
-```
-
-No account, no payment, no signup. The CLI is free and open-source
-under MIT. You bring your own license key (see [Quick start](#quick-start)).
 
 ## Quick start
 
