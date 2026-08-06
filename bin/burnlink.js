@@ -16,6 +16,7 @@ const linkMod = require("../src/link");
 const configMod = require("../src/config");
 const api = require("../src/api");
 const { parseBoolArg } = require("../src/args");
+const asciiLogo = require("../src/ascii-logo");
 
 const VERSION = require("../package.json").version;
 // apiBaseUrl / linkBaseUrl come from src/config.js DEFAULTS (which already
@@ -517,7 +518,22 @@ async function main() {
 
   const cmd = args._[0];
   if (!cmd) {
-    console.log(HELP);
+    // Premium splash: PNG flame + figlet wordmark on truecolor TTY,
+    // ASCII fallback otherwise. Honours NO_COLOR / piped output.
+    const cfg = loadConfig();
+    let plan = null, fingerprint = null;
+    if (cfg.licenseKey) {
+      const parsed = license.validateKey(cfg.licenseKey);
+      if (parsed.ok) plan = parsed.tier;
+      // Short, non-secret prefix of the license key acts as a fingerprint.
+      fingerprint = cfg.licenseKey.slice(0, 12);
+    }
+    process.stdout.write(asciiLogo.renderSplash({
+      version: VERSION,
+      plan,
+      fingerprint,
+      repo: "github.com/paperfrogs-hq/BurnLink-CLI",
+    }) + "\n");
     return;
   }
   const handler = ROUTES[cmd];

@@ -15,6 +15,7 @@
   "files": [
     "bin/burnlink.js",
     "src/",
+    "assets/",
     "keys/issuer.pub",
     "README.md",
     "LICENSE"
