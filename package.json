@@ -1,6 +1,6 @@
 {
   "name": "burnlink",
-  "version": "0.3.0",
+  "version": "0.2.2",
   "description": "BurnLink CLI — zero-knowledge, self-destructing file sharing from your terminal.",
   "author": {
     "name": "Joy G. Majumdar",
