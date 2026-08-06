@@ -24,26 +24,31 @@ successful download, so the link self-destructs.
 npm install -g burnlink
 ```
 
-If you purchased a key before this open-source release, you already
-have a working CLI installed. The new public package is fully
-backward-compatible with existing keys.
+No account, no payment, no signup. The CLI is free and open-source
+under MIT. You bring your own license key (see [Quick start](#quick-start)).
 
 ## Quick start
 
 ### 1. Get a license key
 
-You need a license key to use hosted BurnLink. Two ways to get one:
+You need a license key to talk to the BurnLink backend. The good
+news: there is no purchase step. Two ways to get a key, both free:
 
-- **Buy one** at [burnlink.page](https://burnlink.page) — you'll be
-  emailed a key like `BURNLINK-STD-XXXX-XXXX-XXXX`.
-- **Mint your own DEV key** (free, for development against your own
-  backend) — see [Generate a license key](#generate-a-license-key)
-  below.
+- **Mint your own DEV key** — for development against your own
+  backend, or for users who don't need a hosted account. See
+  [Generate a license key](#generate-a-license-key) below.
+- **Use a key someone shared with you** — anyone with the CLI can
+  mint a DEV key and pass it to you; the key string is the whole
+  credential.
+
+The CLI source is fully open-source (MIT). The bundled issuer
+public key is the only thing the hosted backend needs to know about
+a key — issuing a key does not gatekeep use.
 
 ### 2. Activate it
 
 ```bash
-burnlink activate BURNLINK-STD-XXXX-XXXX-XXXX
+burnlink activate BURNLINK-DEV-XXXX-XXXX-XXXX
 burnlink status
 ```
 
@@ -92,7 +97,7 @@ bundled issuer public key (Ed25519) before being saved to your local
 config. A typoed or fabricated key is rejected with no network call.
 
 ```bash
-burnlink activate BURNLINK-STD-XXXX-XXXX-XXXX
+burnlink activate BURNLINK-DEV-XXXX-XXXX-XXXX
 ```
 
 ### status
@@ -206,16 +211,14 @@ burnlink version
 
 `gen-key` is a **maintainer-only** command — it mints signed license
 keys. It is excluded from the published npm package because the
-signing key (`keys/issuer.key`) only exists on the maintainer's
+signing key (`keys/issuer.key$) only exists on the maintainer's
 machine.
 
 For end users, this means: **you cannot run `burnlink gen-key` from
-your installed CLI.** Buy a key from [burnlink.page](https://burnlink.page)
-instead.
-
-If you are the maintainer (or building your own self-hosted backend
-and want to mint your own keys), the `gen-key` command lives in the
-development-only script:
+your installed CLI.** Clone the repo and run the dev script instead
+(see below). It is free, requires no account, and only needs the
+maintainer's public key — which is already bundled in
+`src/issuer-pub.js`.
 
 ```bash
 # from the BurnLink-CLI repo:
